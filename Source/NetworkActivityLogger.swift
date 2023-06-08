@@ -63,6 +63,8 @@ public class NetworkActivityLogger {
     
     private let queue = DispatchQueue(label: "\(NetworkActivityLogger.self) Queue")
     
+    public var printLog: ((String)->Void)?
+    
     // MARK: - Internal - Initialization
     
     init() {
@@ -124,13 +126,13 @@ public class NetworkActivityLogger {
                 
                 self.logDivider()
                 
-                print("\(httpMethod) '\(requestURL.absoluteString)':")
+                finalLog("\(httpMethod) '\(requestURL.absoluteString)':")
                 
-                print("cURL:\n\(cURL)")
+                finalLog("cURL:\n\(cURL)")
             case .info:
                 self.logDivider()
                 
-                print("\(httpMethod) '\(requestURL.absoluteString)'")
+                finalLog("\(httpMethod) '\(requestURL.absoluteString)'")
             default:
                 break
             }
@@ -160,8 +162,7 @@ public class NetworkActivityLogger {
                 case .debug, .info, .warn, .error:
                     self.logDivider()
                     
-                    print("[Error] \(httpMethod) '\(requestURL.absoluteString)' [\(String(format: "%.04f", elapsedTime)) s]:")
-                    print(error)
+                    finalLog("[Error] \(httpMethod) '\(requestURL.absoluteString)' [\(String(format: "%.04f", elapsedTime)) s]:\n", error)
                 default:
                     break
                 }
@@ -174,30 +175,28 @@ public class NetworkActivityLogger {
                 case .debug:
                     self.logDivider()
                     
-                    print("\(String(response.statusCode)) '\(requestURL.absoluteString)' [\(String(format: "%.04f", elapsedTime)) s]:")
+                    finalLog("\(String(response.statusCode)) '\(requestURL.absoluteString)' [\(String(format: "%.04f", elapsedTime)) s]:")
                     
                     self.logHeaders(headers: response.allHeaderFields)
                     
                     guard let data = dataRequest.data else { break }
-                    
-                    print("Body:")
                     
                     do {
                         let jsonObject = try JSONSerialization.jsonObject(with: data, options: .mutableContainers)
                         let prettyData = try JSONSerialization.data(withJSONObject: jsonObject, options: .prettyPrinted)
                         
                         if let prettyString = String(data: prettyData, encoding: .utf8) {
-                            print(prettyString)
+                            finalLog("Body:", prettyString)
                         }
                     } catch {
                         if let string = NSString(data: data, encoding: String.Encoding.utf8.rawValue) {
-                            print(string)
+                            finalLog("Body:", string)
                         }
                     }
                 case .info:
                     self.logDivider()
                     
-                    print("\(String(response.statusCode)) '\(requestURL.absoluteString)' [\(String(format: "%.04f", elapsedTime)) s]")
+                    finalLog("\(String(response.statusCode)) '\(requestURL.absoluteString)' [\(String(format: "%.04f", elapsedTime)) s]")
                 default:
                     break
                 }
@@ -209,14 +208,23 @@ public class NetworkActivityLogger {
 
 private extension NetworkActivityLogger {
     func logDivider() {
-        print("---------------------")
+        finalLog("---------------------")
     }
     
     func logHeaders(headers: [AnyHashable : Any]) {
-        print("Headers: [")
-        for (key, value) in headers {
-            print("  \(key): \(value)")
-        }
-        print("]")
+//        finalLog("Headers: [")
+//        for (key, value) in headers {
+//            finalLog("  \(key): \(value)")
+//        }
+//        finalLog("]")
     }
+    
+}
+
+fileprivate func finalLog(_ items: Any...) {
+    var output = ""
+    for item in items {
+        output += "\(item) "
+    }
+    NetworkActivityLogger.shared.printLog?(output)
 }
